@@ -9,10 +9,34 @@ let total = 0;
 let count = 0;
 
 const lines = fs.readFileSync("payments.jsonl", "utf8").split("\n").filter((l) => l.length > 0);
+
+// Keep only the latest events for each transaction
+const latestTransactions = new Map();
+
 for (const line of lines) {
-  const event = JSON.parse(line);
+  try {
+    const event = JSON.parse(line);
+    
+    if (!event.txn_id) 
+    {  
+      continue
+    }
+    const existing = latestTransactions.get(event.txn_id);
+
+    if (!existing || event.ts > existing.ts) {
+      latestTransactions.set(event.txn_id, event)
+    }
+    
+  } catch {
+    continue;
+  }
+}
+
+for (const [_, event] of latestTransactions) {
   if (event.status === "success") {
-    total += Number(event.amount);
+    // Amounts may contain thousands separators, e.g. "274,964.19"
+    const amountString = String(event.amount);
+    total += Number(amountString.replaceAll(",", ""));
     count += 1;
   }
 }
